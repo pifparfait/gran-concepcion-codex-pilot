@@ -1,0 +1,44 @@
+name: Synthetic Codex pilot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetic-codex-pilot
+  cancel-in-progress: false
+
+jobs:
+  codex-pilot:
+    name: Owner-approved synthetic read
+    runs-on: ubuntu-latest
+    environment: codex-pilot
+    timeout-minutes: 5
+    steps:
+      - name: Check out synthetic fixture
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify synthetic fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat fixture.txt)" = "SYNTHETIC_READY"
+          printf 'Fixture SHA-256: '
+          sha256sum fixture.txt | cut -d ' ' -f 1
+
+      - name: Ask Codex to read fixture only
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":read-only"
+          safety-strategy: drop-sudo
+          prompt: |
+            This is an isolated synthetic test repository.
+            Read fixture.txt in the current working directory.
+            Return exactly the text SYNTHETIC_READY and nothing else.
+            Do not modify files, execute scientific pipelines, or access external repositories.
