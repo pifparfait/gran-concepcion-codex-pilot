@@ -1,0 +1,63 @@
+name: ChatGPT to Codex synthetic bridge
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: gc-pilot-bridge
+  cancel-in-progress: false
+
+jobs:
+  synthetic-bridge:
+    if: ${{ github.event.issue.number == 1 && !github.event.issue.pull_request && github.event.comment.user.login == 'pifparfait' && github.event.comment.body == 'GC_PILOT_RUN_SYNTHETIC_V1' }}
+    runs-on: ubuntu-latest
+    environment: codex-pilot
+    timeout-minutes: 5
+    steps:
+      - name: Check out isolated pilot
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate fixture
+        run: |
+          set -euo pipefail
+          test "$(cat fixture.txt)" = "SYNTHETIC_READY"
+          sha256sum fixture.txt
+      - name: Prepare unprivileged user
+        run: |
+          set -euo pipefail
+          sudo useradd --create-home --shell /bin/bash codexpilot
+          sudo chmod o+rx "$HOME" "$GITHUB_WORKSPACE"
+          sudo chmod o+r fixture.txt
+      - name: Run fixed synthetic Codex task
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":read-only"
+          codex-version: "0.138.0"
+          safety-strategy: unprivileged-user
+          codex-user: codexpilot
+          output-file: /tmp/gc-pilot-output.txt
+          prompt: |
+            Read fixture.txt in this synthetic-only repository.
+            Respond with exactly SYNTHETIC_READY and no other text.
+            Do not change files or access external repositories.
+      - name: Verify exact Codex result
+        run: |
+          set -euo pipefail
+          test "$(cat /tmp/gc-pilot-output.txt)" = "SYNTHETIC_READY"
+      - name: Report verified result to pilot issue
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          printf 'GC_PILOT_RESULT_V1: PASS\nOutput: SYNTHETIC_READY\nRun: %s\n' "$RUN_URL" > /tmp/gc-pilot-report.txt
+          gh issue comment 1 --body-file /tmp/gc-pilot-report.txt
