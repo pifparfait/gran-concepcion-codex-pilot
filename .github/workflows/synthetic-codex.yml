@@ -30,6 +30,14 @@ jobs:
           printf 'Fixture SHA-256: '
           sha256sum fixture.txt | cut -d ' ' -f 1
 
+      - name: Prepare isolated unprivileged Codex user
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo useradd --create-home --shell /bin/bash codexpilot
+          sudo chmod o+rx "$HOME" "$GITHUB_WORKSPACE"
+          sudo chmod o+r fixture.txt
+
       - name: Ask Codex to read fixture only
         id: codex
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
@@ -37,7 +45,8 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":read-only"
           codex-version: "0.138.0"
-          safety-strategy: drop-sudo
+          safety-strategy: unprivileged-user
+          codex-user: codexpilot
           prompt: |
             This is an isolated synthetic test repository.
             Read fixture.txt in the current working directory.
