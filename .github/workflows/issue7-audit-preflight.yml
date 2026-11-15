@@ -1,7 +1,8 @@
 name: Issue 7 audit receipt rehearsal
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [review/issue7-audit-preflight]
 
 permissions:
   contents: read
