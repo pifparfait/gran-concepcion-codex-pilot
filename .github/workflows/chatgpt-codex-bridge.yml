@@ -61,3 +61,14 @@ jobs:
           set -euo pipefail
           printf 'GC_PILOT_RESULT_V1: PASS\nOutput: SYNTHETIC_READY\nRun: %s\n' "$RUN_URL" > /tmp/gc-pilot-report.txt
           gh issue comment 1 --body-file /tmp/gc-pilot-report.txt
+      - name: Report verified synthetic result to scientific coordination Issue 7
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ secrets.GC_ISSUE7_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          printf 'GC_SYNTHETIC_BRIDGE_V1: PASS\nScope: isolated pilot fixture only; no scientific execution.\nExact output: SYNTHETIC_READY\nPilot commit: %s\nRun: %s\nM0: untouched. C6_PREP: not retried. Ground truth: not accessed.\n' "$COMMIT_SHA" "$RUN_URL" > /tmp/gc-issue7-report.txt
+          gh api --method POST repos/pifparfait/synthetic-population-santiago/issues/7/comments -F body=@/tmp/gc-issue7-report.txt
