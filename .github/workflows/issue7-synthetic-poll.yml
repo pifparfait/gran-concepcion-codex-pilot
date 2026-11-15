@@ -10,10 +10,11 @@ concurrency:
   group: issue7-synthetic
   cancel-in-progress: false
 jobs:
-  run:
+  poll:
     runs-on: ubuntu-latest
-    environment: codex-pilot
-    timeout-minutes: 8
+    timeout-minutes: 3
+    outputs:
+      command_id: ${{ steps.command.outputs.id }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -34,15 +35,23 @@ jobs:
               if not any('GC_ISSUE7_SYNTHETIC_COMPLETED:'+str(i) in c.get('body','') for c in a):
                   print('id='+str(i))
           PY
+  execute:
+    needs: poll
+    if: ${{ needs.poll.outputs.command_id != '' }}
+    runs-on: ubuntu-latest
+    environment: codex-pilot
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - name: Prepare unprivileged user
-        if: ${{ steps.command.outputs.id != '' }}
         run: |
           test "$(cat fixture.txt)" = "SYNTHETIC_READY"
           sudo useradd --create-home --shell /bin/bash codexpilot
           sudo chmod o+rx "$HOME" "$GITHUB_WORKSPACE"
           sudo chmod o+r fixture.txt
       - name: Run fixed synthetic Codex task
-        if: ${{ steps.command.outputs.id != '' }}
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -55,10 +64,9 @@ jobs:
             Read fixture.txt. Return exactly SYNTHETIC_READY.
             Do not modify files or access external repositories.
       - name: Verify and report
-        if: ${{ steps.command.outputs.id != '' }}
         env:
           GH_TOKEN: ${{ secrets.GC_ISSUE7_TOKEN }}
-          COMMAND_ID: ${{ steps.command.outputs.id }}
+          COMMAND_ID: ${{ needs.poll.outputs.command_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
