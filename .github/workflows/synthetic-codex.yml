@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out synthetic fixture
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
 
@@ -32,10 +32,11 @@ jobs:
 
       - name: Ask Codex to read fixture only
         id: codex
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":read-only"
+          codex-version: "0.138.0"
           safety-strategy: drop-sudo
           prompt: |
             This is an isolated synthetic test repository.
