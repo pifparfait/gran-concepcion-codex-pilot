@@ -1,0 +1,18 @@
+name: Issue 7 audit receipt rehearsal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Rehearse audit validation and receipt recovery
+        run: python3 -IB -m unittest discover -s . -p test_issue7_audit.py -v
